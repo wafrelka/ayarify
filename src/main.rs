@@ -111,3 +111,71 @@ fn main() {
     let document: SerializableHandle = dom.document.into();
     serialize(&mut io::stdout(), &document, Default::default()).expect("serialization failed");
 }
+
+#[cfg(test)]
+mod test {
+
+    use html5ever::tree_builder::TreeBuilderOpts;
+
+    use super::*;
+
+    fn trim_spaces(s: &str) -> String {
+        s.split('\n').map(|line| line.trim()).collect::<Vec<_>>().join("")
+    }
+
+    #[test]
+    fn test_ayarify() {
+
+        let html = r#"
+            <!doctype html>
+            <html>
+                <head></head>
+                <body>
+                    <h2>header1</h2><p>para1</p>
+                    <div data-ayarify="true">
+                        <h2 class="cls">header2</h2><p>para2</p>
+                        <h4>header3</h4><p>para3</p>
+                        <h3>header4</h3><p>para4</p>
+                        <h2>header5</h2><p>para5</p>
+                    </div>
+                </body>
+            </html>
+        "#;
+        let expected = r#"
+            <html>
+                <head></head>
+                <body>
+                    <h2>header1</h2><p>para1</p>
+                    <div data-ayarify="true">
+                        <div class="cls">
+                            <h2>header2</h2><p>para2</p>
+                            <div><h4>header3</h4><p>para3</p></div>
+                            <div><h3>header4</h3><p>para4</p></div>
+                        </div>
+                        <div><h2>header5</h2><p>para5</p></div>
+                    </div>
+                </body>
+            </html>
+        "#;
+
+        let opts = ParseOpts {
+            tree_builder: TreeBuilderOpts { drop_doctype: true, ..Default::default() },
+            ..Default::default()
+        };
+
+        let dom = parse_document(RcDom::default(), opts)
+            .from_utf8()
+            .read_from(&mut trim_spaces(html).as_bytes())
+            .unwrap();
+
+        ayarify(&dom.document);
+
+        let mut output = vec![];
+        let document: SerializableHandle = dom.document.into();
+        serialize(&mut output, &document, Default::default()).expect("serialization failed");
+
+        let actual = String::from_utf8_lossy(&output);
+
+        assert_eq!(actual, trim_spaces(expected));
+    }
+}
