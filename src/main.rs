@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
 
@@ -48,26 +49,21 @@ fn ayarify_all(root: &Handle) {
             stack.push((node, level));
         };
 
-        match child.data {
-            NodeData::Element { name: html_name!("h1"), ref attrs, .. } => {
-                add_new_context(1, attrs.replace(vec![]));
+        if let NodeData::Element { ref name, ref attrs, .. } = child.data {
+            let tags = HashMap::from([
+                (html_name!("h1"), 1),
+                (html_name!("h2"), 2),
+                (html_name!("h3"), 3),
+                (html_name!("h4"), 4),
+                (html_name!("h5"), 5),
+                (html_name!("h6"), 6),
+            ]);
+            for (tag, level) in tags {
+                if tag == *name {
+                    add_new_context(level, attrs.replace(vec![]));
+                    break;
+                }
             }
-            NodeData::Element { name: html_name!("h2"), ref attrs, .. } => {
-                add_new_context(2, attrs.replace(vec![]));
-            }
-            NodeData::Element { name: html_name!("h3"), ref attrs, .. } => {
-                add_new_context(3, attrs.replace(vec![]));
-            }
-            NodeData::Element { name: html_name!("h4"), ref attrs, .. } => {
-                add_new_context(4, attrs.replace(vec![]));
-            }
-            NodeData::Element { name: html_name!("h5"), ref attrs, .. } => {
-                add_new_context(5, attrs.replace(vec![]));
-            }
-            NodeData::Element { name: html_name!("h6"), ref attrs, .. } => {
-                add_new_context(6, attrs.replace(vec![]));
-            }
-            _ => {}
         }
 
         let last = stack.last().expect("empty context");
