@@ -10,6 +10,7 @@ use html5ever::{
     local_name, namespace_url, ns, parse_document, serialize, Attribute, LocalName, QualName,
 };
 use rcdom::{Handle, Node, NodeData, RcDom, SerializableHandle};
+use structopt::StructOpt;
 
 macro_rules! html_name {
     ($name:tt) => {
@@ -71,10 +72,10 @@ fn ayarify_all(root: &Handle) {
     }
 }
 
-fn is_ayarifiable(node: &Handle) -> bool {
+fn is_ayarifiable(node: &Handle, ayarify_attr_name: &str) -> bool {
 
     let ayarify_attribute =
-        QualName { prefix: None, ns: ns!(), local: LocalName::from("data-ayarify") };
+        QualName { prefix: None, ns: ns!(), local: LocalName::from(ayarify_attr_name) };
 
     match &node.data {
         NodeData::Element { attrs, .. } => {
@@ -84,17 +85,25 @@ fn is_ayarifiable(node: &Handle) -> bool {
     }
 }
 
-fn ayarify(root: &Handle) {
-    if is_ayarifiable(root) {
+fn ayarify(root: &Handle, ayarify_attr_name: &str) {
+    if is_ayarifiable(root, ayarify_attr_name) {
         ayarify_all(root);
     } else {
         for child in root.children.borrow().iter() {
-            ayarify(child);
+            ayarify(child, ayarify_attr_name);
         }
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct Options {
+    #[structopt(short, long)]
+    attribute: Option<Option<String>>,
+}
+
 fn main() {
+
+    let options = Options::from_args();
 
     let stdin = io::stdin();
     let dom = parse_document(RcDom::default(), ParseOpts::default())
@@ -102,7 +111,11 @@ fn main() {
         .read_from(&mut stdin.lock())
         .expect("reader failed");
 
-    ayarify(&dom.document);
+    if let Some(attr) = options.attribute {
+        ayarify(&dom.document, attr.as_deref().unwrap_or("data-ayarify"));
+    } else {
+        ayarify_all(&dom.document);
+    }
 
     let document: SerializableHandle = dom.document.into();
     serialize(&mut io::stdout(), &document, Default::default()).expect("serialization failed");
@@ -164,7 +177,7 @@ mod test {
             .read_from(&mut trim_spaces(html).as_bytes())
             .unwrap();
 
-        ayarify(&dom.document);
+        ayarify(&dom.document, "data-ayarify");
 
         let mut output = vec![];
         let document: SerializableHandle = dom.document.into();
