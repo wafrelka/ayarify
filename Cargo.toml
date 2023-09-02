@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "4.4.2", features = ["derive"] }
 html5ever = "0.25"
 markup5ever_rcdom = "0.1"
-structopt = { version = "0.3", default-features = false }

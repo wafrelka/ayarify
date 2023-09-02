@@ -1,16 +1,16 @@
 use std::io;
 
 use ayarify::ayarify;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 struct Options {
-    #[structopt(short, long)]
+    #[clap(short, long)]
     attribute: Option<Option<String>>,
 }
 
 fn main() {
-    let options = Options::from_args();
+    let options = Options::parse();
     let attr = options.attribute.map(|a| a.unwrap_or("data-ayarify".into()));
 
     let stdin = io::stdin();
