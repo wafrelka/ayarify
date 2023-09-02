@@ -19,7 +19,6 @@ macro_rules! html_name {
 }
 
 fn ayarify_all(root: &Handle) {
-
     for child in root.children.borrow().iter() {
         ayarify_all(child);
     }
@@ -33,7 +32,6 @@ fn ayarify_all(root: &Handle) {
     };
 
     for child in children.iter() {
-
         let mut add_new_context = |level: i32, attrs: Vec<Attribute>| {
             while stack.last().map_or(false, |c| c.1 >= level) {
                 stack.pop();
@@ -73,7 +71,6 @@ fn ayarify_all(root: &Handle) {
 }
 
 fn is_ayarifiable(node: &Handle, ayarify_attr_name: &str) -> bool {
-
     let ayarify_attribute =
         QualName { prefix: None, ns: ns!(), local: LocalName::from(ayarify_attr_name) };
 
@@ -102,7 +99,6 @@ struct Options {
 }
 
 fn main() {
-
     let options = Options::from_args();
 
     let stdin = io::stdin();
@@ -134,7 +130,6 @@ mod test {
 
     #[test]
     fn test_ayarify() {
-
         let html = r#"
             <!doctype html>
             <html>
