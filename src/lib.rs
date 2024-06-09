@@ -1,4 +1,4 @@
 mod ayarify;
 mod layer;
 
-pub use ayarify::ayarify;
+pub use ayarify::{ayarify, AyarifyOptions};

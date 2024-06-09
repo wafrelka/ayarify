@@ -3,7 +3,7 @@ use std::mem::take;
 use ego_tree::{NodeId, NodeRef};
 use html5ever::interface::ElementFlags;
 use html5ever::tree_builder::TreeSink;
-use html5ever::{local_name, namespace_url, ns, QualName};
+use html5ever::{local_name, namespace_url, ns, LocalName, QualName};
 use scraper::{Html, Node};
 
 use crate::layer::{compute_layer_parents, Level};
@@ -12,6 +12,18 @@ macro_rules! html_name {
     ($name:tt) => {
         QualName { prefix: None, ns: ns!(html), local: local_name!($name) }
     };
+}
+
+#[derive(Clone, Debug)]
+pub struct AyarifyOptions {
+    pub attribute: Option<String>,
+    pub element: String,
+}
+
+impl Default for AyarifyOptions {
+    fn default() -> Self {
+        Self { attribute: Some("data-ayarify".into()), element: "div".into() }
+    }
 }
 
 fn get_header_level_from_qual_name(name: &QualName) -> Option<Level> {
@@ -31,20 +43,20 @@ fn get_header_level(node: NodeRef<Node>) -> Option<Level> {
     node.value().as_element().and_then(|e| get_header_level_from_qual_name(&e.name))
 }
 
-fn wrap_header(document: &mut Html, node_id: NodeId) -> NodeId {
+fn wrap_header(document: &mut Html, node_id: NodeId, element: &str) -> NodeId {
     let mut node = document.tree.get_mut(node_id).unwrap();
     let attrs = match node.value() {
         Node::Element(elem) => take(&mut elem.attrs),
         _ => Default::default(),
     };
     let attrs = attrs.into_iter().map(|(name, value)| html5ever::Attribute { name, value });
-    let wrapper_id =
-        document.create_element(html_name!("div"), attrs.collect(), ElementFlags::default());
+    let qual_name = QualName { prefix: None, ns: ns!(html), local: LocalName::from(element) };
+    let wrapper_id = document.create_element(qual_name, attrs.collect(), ElementFlags::default());
     document.append(&wrapper_id, html5ever::interface::NodeOrText::AppendNode(node_id));
     wrapper_id
 }
 
-fn ayarify_node(document: &mut Html, node_id: NodeId) {
+fn ayarify_node(document: &mut Html, node_id: NodeId, element: &str) {
     let node = document.tree.get(node_id).unwrap();
 
     let children: Vec<_> = node.children().map(|c| (get_header_level(c), c.id())).collect();
@@ -58,7 +70,7 @@ fn ayarify_node(document: &mut Html, node_id: NodeId) {
         document.remove_from_parent(&id);
 
         let id = match level {
-            Some(_) => wrap_header(document, id),
+            Some(_) => wrap_header(document, id, element),
             _ => id,
         };
 
@@ -69,13 +81,13 @@ fn ayarify_node(document: &mut Html, node_id: NodeId) {
     }
 }
 
-fn ayarify_tree(document: &mut Html, node_id: NodeId) {
+fn ayarify_tree(document: &mut Html, node_id: NodeId, element: &str) {
     let node = document.tree.get(node_id).unwrap();
     let children: Vec<_> = node.children().map(|c| c.id()).collect();
     for child in children {
-        ayarify_tree(document, child);
+        ayarify_tree(document, child, element);
     }
-    ayarify_node(document, node_id);
+    ayarify_node(document, node_id, element);
 }
 
 fn has_attribute(node: NodeRef<Node>, attribute: &str) -> bool {
@@ -86,27 +98,26 @@ fn has_attribute(node: NodeRef<Node>, attribute: &str) -> bool {
     }
 }
 
-fn ayarify_marked_tree(document: &mut Html, node_id: NodeId, attribute: &str) {
+fn ayarify_marked_tree(document: &mut Html, node_id: NodeId, attribute: &str, element: &str) {
     let node = document.tree.get(node_id).unwrap();
     if has_attribute(node, attribute) {
-        ayarify_tree(document, node_id);
+        ayarify_tree(document, node_id, element);
     } else {
         let children: Vec<_> = node.children().map(|c| c.id()).collect();
         for child in children {
-            ayarify_marked_tree(document, child, attribute);
+            ayarify_marked_tree(document, child, attribute, element);
         }
     }
 }
 
-pub fn ayarify(src: &str, attribute: Option<&str>) -> String {
+pub fn ayarify(src: &str, options: AyarifyOptions) -> String {
     let mut document = Html::parse_document(src);
     let root = document.root_element().id();
-    if let Some(attribute) = attribute {
-        ayarify_marked_tree(&mut document, root, attribute);
+    if let Some(attribute) = options.attribute {
+        ayarify_marked_tree(&mut document, root, &attribute, &options.element);
     } else {
-        ayarify_tree(&mut document, root);
+        ayarify_tree(&mut document, root, &options.element);
     }
-
     document.html()
 }
 
@@ -127,7 +138,7 @@ mod test {
     #[case::sample(include_str!("../testdata/sample.html"), include_str!("../testdata/sample.expected.html"))]
     #[test]
     fn test_ayarify(#[case] input: &str, #[case] expected: &str) {
-        let actual = ayarify(input, Some("data-ayarify"));
+        let actual = ayarify(input, Default::default());
         assert_eq!(trim_spaces(&actual), trim_spaces(expected));
     }
 }
